@@ -9,7 +9,7 @@ import { Send, Play, Settings, Download, Eye, Code, Terminal } from "lucide-reac
 
 const EditorInterface = () => {
   const [apiKey, setApiKey] = useState("");
-  const [selectedModel, setSelectedModel] = useState("gemini-pro");
+  const [selectedModel, setSelectedModel] = useState("gemini-1.5-flash");
   const [prompt, setPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -58,6 +58,10 @@ const EditorInterface = () => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash (Latest)</SelectItem>
+                      <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
+                      <SelectItem value="gemini-1.5-flash-8b">Gemini 1.5 Flash-8B</SelectItem>
+                      <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
                       <SelectItem value="gemini-pro">Gemini Pro</SelectItem>
                       <SelectItem value="gemini-pro-vision">Gemini Pro Vision</SelectItem>
                       <SelectItem value="gemini-ultra">Gemini Ultra</SelectItem>
