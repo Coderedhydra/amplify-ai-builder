@@ -12,15 +12,75 @@ const EditorInterface = () => {
   const [selectedModel, setSelectedModel] = useState("gemini-1.5-flash");
   const [prompt, setPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedCode, setGeneratedCode] = useState("");
+  const [error, setError] = useState("");
 
   const handleGenerate = async () => {
-    if (!apiKey || !prompt) return;
+    if (!apiKey || !prompt) {
+      setError("Please enter both API key and project description");
+      return;
+    }
     
     setIsGenerating(true);
-    // Simulate API call
-    setTimeout(() => {
+    setError("");
+    
+    try {
+      console.log("Starting generation with:", { model: selectedModel, prompt: prompt.substring(0, 50) + "..." });
+      
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `Create a complete React application with Vite based on this description: ${prompt}. 
+
+Please provide the complete code for a working React app including:
+1. Main App.jsx component
+2. Any additional components needed
+3. CSS styling with Tailwind classes
+4. Make it fully functional and beautiful
+
+The response should be clean, working code that can be directly used.`
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 8192,
+          }
+        })
+      });
+
+      console.log("API Response status:", response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("API Error:", errorData);
+        throw new Error(errorData.error?.message || `API call failed with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("API Response received:", data);
+      
+      if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+        const generatedText = data.candidates[0].content.parts[0].text;
+        setGeneratedCode(generatedText);
+        console.log("Code generated successfully, length:", generatedText.length);
+      } else {
+        console.error("Unexpected response format:", data);
+        throw new Error("Unexpected response format from Gemini API");
+      }
+      
+    } catch (err) {
+      console.error("Generation error:", err);
+      setError(err instanceof Error ? err.message : "Failed to generate app. Please check your API key and try again.");
+    } finally {
       setIsGenerating(false);
-    }, 3000);
+    }
   };
 
   return (
@@ -88,6 +148,9 @@ const EditorInterface = () => {
                     onChange={(e) => setPrompt(e.target.value)}
                     className="bg-surface-elevated border-border min-h-[120px] resize-none"
                   />
+                  {error && (
+                    <p className="text-destructive text-sm">{error}</p>
+                  )}
                 </div>
                 
                 <Button 
@@ -152,26 +215,60 @@ const EditorInterface = () => {
               <CardContent className="h-[calc(100%-5rem)] p-0">
                 <Tabs defaultValue="preview" className="h-full">
                   <TabsContent value="preview" className="h-full m-0 p-6">
-                    <div className="h-full bg-surface-elevated rounded-lg border border-border flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse-glow">
-                          <Eye className="w-8 h-8 text-white" />
+                    <div className="h-full bg-surface-elevated rounded-lg border border-border overflow-auto">
+                      {generatedCode ? (
+                        <iframe
+                          srcDoc={`
+                            <!DOCTYPE html>
+                            <html>
+                              <head>
+                                <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+                                <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+                                <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+                                <script src="https://cdn.tailwindcss.com"></script>
+                              </head>
+                              <body>
+                                <div id="root"></div>
+                                <script type="text/babel">
+                                  ${generatedCode.replace(/```jsx?/g, '').replace(/```/g, '')}
+                                </script>
+                              </body>
+                            </html>
+                          `}
+                          className="w-full h-full border-0"
+                          title="Generated App Preview"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <div className="text-center">
+                            <div className="w-16 h-16 bg-gradient-primary rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse-glow">
+                              <Eye className="w-8 h-8 text-white" />
+                            </div>
+                            <h3 className="text-lg font-semibold mb-2">Preview Area</h3>
+                            <p className="text-muted-foreground">Your generated app will appear here</p>
+                          </div>
                         </div>
-                        <h3 className="text-lg font-semibold mb-2">Preview Area</h3>
-                        <p className="text-muted-foreground">Your generated app will appear here</p>
-                      </div>
+                      )}
                     </div>
                   </TabsContent>
                   
                   <TabsContent value="code" className="h-full m-0 p-6">
-                    <div className="h-full bg-surface-elevated rounded-lg border border-border flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="w-16 h-16 bg-gradient-secondary rounded-full flex items-center justify-center mx-auto mb-4">
-                          <Code className="w-8 h-8 text-white" />
+                    <div className="h-full bg-surface-elevated rounded-lg border border-border overflow-auto">
+                      {generatedCode ? (
+                        <pre className="p-4 text-sm text-foreground font-mono whitespace-pre-wrap">
+                          <code>{generatedCode}</code>
+                        </pre>
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <div className="text-center">
+                            <div className="w-16 h-16 bg-gradient-secondary rounded-full flex items-center justify-center mx-auto mb-4">
+                              <Code className="w-8 h-8 text-white" />
+                            </div>
+                            <h3 className="text-lg font-semibold mb-2">Code Editor</h3>
+                            <p className="text-muted-foreground">Generated code will be displayed here</p>
+                          </div>
                         </div>
-                        <h3 className="text-lg font-semibold mb-2">Code Editor</h3>
-                        <p className="text-muted-foreground">Generated code will be displayed here</p>
-                      </div>
+                      )}
                     </div>
                   </TabsContent>
                   
